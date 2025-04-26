@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>AI</title>
+    </head>
+
+    <body>
+        <select id="models">
+            <option>ChatGPT</option>
+            <option>Claude</option>
+            <option>DeepSeek</option>
+        </select>
+
+        <input id="prompt" type="text" placeholder="Put your prompt here...">
+        <input id="files" type="file" multiple>
+
+        <button id="submit">SUBMIT!</button>
+
+        <div id="response"></div>
+
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <script>
+            function newGUID() {
+                return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
+            }
+
+            function upload(file) {
+                const formData = new FormData();
+                formData.append('c', file);
+                formData.append('e', '1m'); 
+
+                return fetch('https://pb.angelrose.org/', {
+                    method: 'POST',
+                    body: formData,
+                })
+                    .then(response => response.json())
+                    .then(data => data.url)
+            }
+
+            const models = document.getElementById("models");
+            const promptInput = document.getElementById("prompt");
+            const fileInput = document.getElementById("files");
+            const submit = document.getElementById("submit");
+            const response = document.getElementById("response");
+
+            submit.addEventListener("click", async () => {
+                response.textContent = "Loading...";
+
+                const model = models.value;
+                const prompt = promptInput.value;
+                const files = fileInput.files;
+
+                let attachments = [];
+
+                for (const file of files) {
+                    const extension = "." + file.name.split(".").pop();
+
+                    attachments.push({
+                        fileType: file.type,
+                        fileContent: await upload(file) + extension,
+                    })
+                }
+                
+                response.innerHTML = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        "uniqueid": newGUID(),
+                    },
+                    body: JSON.stringify({
+                        prompt,
+                        sessionId: newGUID(),
+                        attachments
+                    })
+                })
+                    .then(response => response.text())
+                    .then(marked.parse);
+            });
+        </script>
+    </body>
+</html>
