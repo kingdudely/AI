@@ -3,13 +3,22 @@
 <html>
     <head>
         <title>AI</title>
+    
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax/es5/tex-mml-chtml.js"></script>
     </head>
 
     <body>
         <select id="models">
-            <option>ChatGPT</option>
-            <option>Claude</option>
-            <option>DeepSeek</option>
+            <optgroup label="Text Generators">
+                <option>ChatGPT</option>
+                <option>Claude</option>
+                <option>DeepSeek</option>
+            </optgroup>
+    
+            <optgroup label="Image Generators">
+                <option>Stable Diffusion</option>
+            </optgroup>
         </select>
     
         <input id="prompt" type="text" placeholder="Put your prompt here...">
@@ -19,10 +28,15 @@
     
         <div id="response"></div>
     
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script>
+            const textDecoder = new TextDecoder();
+    
             alert("Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
             alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
+    
+            function sleep(milliseconds) {
+                return new Promise(resolve => setTimeout(resolve, milliseconds));
+            }
     
             function newGUID() {
                 return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
@@ -47,60 +61,96 @@
             const submitButton = document.getElementById("submit");
             const responseField = document.getElementById("response");
     
-            submitButton.addEventListener("click", async () => {
-                responseField.textContent = "Loading...";
+            models.addEventListener("change", () => {
+                const option = models.options[models.selectedIndex];
+                const optgroup = option.parentElement;
     
-                const model = models.value;
+                fileInput.hidden = optgroup.label === "Image Generators";
+            })
+    
+            submitButton.addEventListener("click", async () => {
+                let ID = newGUID();
+    
+                responseField.innerHTML = "Loading...";
+    
+                // Turnstile
+                const turnstile = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/should-check-turnstile", {
+                    "headers": {
+                        "uniqueid": ID
+                    }
+                })
+                    .then(response => response.json())
+    
+                if (turnstile.code !== 200) {
+                    alert("Turnstile check failed. After being redirected, please interact with the AI and then come back to this website.");
+                    window.location.href = "https://www.gpt4v.net";
+                    return;
+                }
+    
+                const option = models.options[models.selectedIndex];
+                const optgroup = option.parentElement;
                 const prompt = promptInput.value;
                 const files = fileInput.files;
     
-                let attachments = [];
+                switch (optgroup.label) {
+                    case "Text Generators": {
+                        let attachments = [];
     
-                for (const file of files) {
-                    attachments.push({
-                        fileType: file.type,
-                        fileContent: await upload(file),
-                    })
+                        for (const file of files) {
+                            attachments.push({
+                                fileType: file.type,
+                                fileContent: await upload(file),
+                            });
+                        }
+    
+                        const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
+                            method: "POST",
+                            headers: {
+                                "content-type": "application/json",
+                                "uniqueid": ID,
+                            },
+                            body: JSON.stringify({
+                                prompt,
+                                sessionId: newGUID(),
+                                attachments
+                            })
+                        });
+    
+                        const reader = response.body.getReader();
+                        responseField.innerHTML = "";
+    
+                        let text = "";
+    
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+    
+                            const chunk = textDecoder.decode(value, { stream: true });
+    
+                            try {
+                                const data = JSON.parse(chunk)?.data;
+    
+                                switch (data?.message_type) {
+                                    case "text": {
+                                        text += data.message;
+    
+                                        responseField.innerHTML = marked.parse(text);
+    
+                                        await MathJax.typesetPromise();
+                                        break;
+                                    }
+    
+                                    case "title_generation": {
+                                        document.title = data.message;
+                                        break;
+                                    }
+                                }
+                            } catch {}
+                        }
+    
+                        break;
+                    }
                 }
-    
-                const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
-                    method: "POST",
-                    headers: {
-                        "content-type": "application/json",
-                        "uniqueid": newGUID(),
-                    },
-                    body: JSON.stringify({
-                        prompt,
-                        sessionId: newGUID(),
-                        attachments
-                    })
-                })
-                    .then(response => response.text())
-                    .then(data => {
-                        const items = data.split("\n")
-                            .map(json => {
-                                try {
-                                    return JSON.parse(json)
-                                } catch {}
-                            }).filter(Boolean); // Filter out empty items
-    
-                        const message = items
-                            .filter(item => item?.data.recipient === "text")
-                            .map(item => item?.data.message).join("");
-                            
-                        const title = items.find(item => item?.data.recipient === "title_generation")?.data.message
-    
-                        return {
-                            title,
-                            message
-                        };
-                    })
-    
-                responseField.innerHTML = marked.parse(response.message);
-    
-                if (response.title) {
-                    document.title = response.title;
-                };
             });
         </script>
     </body>
