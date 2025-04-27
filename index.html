@@ -38,7 +38,7 @@
                     body: formData,
                 })
                     .then(response => response.json())
-                    .then(data => data.url)
+                    .then(data => data.suggestUrl)
             }
     
             const models = document.getElementById("models");
@@ -57,11 +57,9 @@
                 let attachments = [];
     
                 for (const file of files) {
-                    const extension = "." + file.name.split(".").pop();
-    
                     attachments.push({
                         fileType: file.type,
-                        fileContent: await upload(file) + extension,
+                        fileContent: await upload(file),
                     })
                 }
     
