@@ -11,25 +11,28 @@
             <option>Claude</option>
             <option>DeepSeek</option>
         </select>
-
+    
         <input id="prompt" type="text" placeholder="Put your prompt here...">
         <input id="files" type="file" multiple>
-
+    
         <button id="submit">SUBMIT!</button>
-
+    
         <div id="response"></div>
-
+    
         <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
         <script>
+            alert("Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
+            alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
+    
             function newGUID() {
                 return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
             }
-
+    
             function upload(file) {
                 const formData = new FormData();
                 formData.append('c', file);
-                formData.append('e', '1m'); 
-
+                formData.append('e', '1m');
+    
                 return fetch('https://pb.angelrose.org/', {
                     method: 'POST',
                     body: formData,
@@ -37,32 +40,32 @@
                     .then(response => response.json())
                     .then(data => data.url)
             }
-
+    
             const models = document.getElementById("models");
             const promptInput = document.getElementById("prompt");
             const fileInput = document.getElementById("files");
-            const submit = document.getElementById("submit");
-            const response = document.getElementById("response");
-
+            const submitButton = document.getElementById("submit");
+            const responseField = document.getElementById("response");
+    
             submit.addEventListener("click", async () => {
-                response.textContent = "Loading...";
-
+                responseField.textContent = "Loading...";
+    
                 const model = models.value;
                 const prompt = promptInput.value;
                 const files = fileInput.files;
-
+    
                 let attachments = [];
-
+    
                 for (const file of files) {
                     const extension = "." + file.name.split(".").pop();
-
+    
                     attachments.push({
                         fileType: file.type,
                         fileContent: await upload(file) + extension,
                     })
                 }
-                
-                response.innerHTML = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
+    
+                const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
                     method: "POST",
                     headers: {
                         "content-type": "application/json",
@@ -75,7 +78,31 @@
                     })
                 })
                     .then(response => response.text())
-                    .then(marked.parse);
+                    .then(data => {
+                        const items = data.split("\n")
+                            .map(json => {
+                                try {
+                                    return JSON.parse(json)
+                                } catch {}
+                            }).filter(Boolean); // Filter out empty items
+    
+                        const message = items
+                            .filter(item => item?.data.recipient === "text")
+                            .map(item => item?.data.message).join("");
+                            
+                        const title = items.find(item => item?.data.recipient === "title_generation")?.data.message
+    
+                        return {
+                            title,
+                            message
+                        };
+                    })
+    
+                responseField.innerHTML = marked.parse(response.message);
+    
+                if (response.title) {
+                    document.title = response.title;
+                };
             });
         </script>
     </body>
