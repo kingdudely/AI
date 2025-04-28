@@ -1,189 +1,191 @@
 <!DOCTYPE html>
 
 <html>
-    <head>
-        <title>AI</title>
 
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/mathjax/es5/tex-mml-chtml.js"></script>
-    </head>
+<head>
+    <title>AI</title>
 
-    <body>
-        <select id="models">
-            <optgroup label="Text Generators">
-                <option>ChatGPT</option>
-                <option>Claude</option>
-                <option>DeepSeek</option>
-            </optgroup>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax/es5/tex-mml-chtml.js"></script>
+</head>
 
-            <optgroup label="Image Generators">
-                <option>Stable Diffusion</option>
-            </optgroup>
-        </select>
+<body>
+    <select id="models">
+        <optgroup label="Text Generators">
+            <option>ChatGPT</option>
+            <option>Claude</option>
+            <option>DeepSeek</option>
+        </optgroup>
 
-        <input id="prompt" type="text" placeholder="Put your prompt here...">
-        <input id="files" type="file" multiple>
+        <optgroup label="Image Generators">
+            <option>Stable Diffusion</option>
+        </optgroup>
+    </select>
 
-        <button id="submit">SUBMIT!</button>
+    <input id="prompt" type="text" placeholder="Put your prompt here...">
+    <input id="files" type="file" multiple>
 
-        <div id="response"></div>
+    <button id="submit">SUBMIT!</button>
 
-        <script>
-            const textDecoder = new TextDecoder();
+    <div id="response"></div>
 
-            alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
-            alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
+    <script>
+        const textDecoder = new TextDecoder();
 
-            function sleep(milliseconds) {
-                return new Promise(resolve => setTimeout(resolve, milliseconds));
-            }
+        alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
+        alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
 
-            function newGUID() {
-                return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
-            }
+        function sleep(milliseconds) {
+            return new Promise(resolve => setTimeout(resolve, milliseconds));
+        }
 
-            function upload(file) {
-                const formData = new FormData();
-                formData.append('c', file); // Content
-                formData.append('e', '1m'); // Expiration time
-                formData.append('p', 'true'); // Long random URL
+        function newGUID() {
+            return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
+        }
 
-                return fetch('https://pb.angelrose.org/', {
-                    method: 'POST',
-                    body: formData,
-                })
-                    .then(response => response.json())
-                    .then(data => data.suggestUrl)
-            }
+        function upload(file) {
+            const formData = new FormData();
+            formData.append('c', file); // Content
+            formData.append('e', '1m'); // Expiration time
+            formData.append('p', 'true'); // Long random URL
 
-            const models = document.getElementById("models");
-            const promptInput = document.getElementById("prompt");
-            const fileInput = document.getElementById("files");
-            const submitButton = document.getElementById("submit");
-            const responseField = document.getElementById("response");
+            return fetch('https://pb.angelrose.org/', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => data.suggestUrl)
+        }
 
-            // Handle dropped files
-            document.addEventListener("dragover", input => input.preventDefault());
-            document.addEventListener("drop", input => {
-                input.preventDefault();
+        const models = document.getElementById("models");
+        const promptInput = document.getElementById("prompt");
+        const fileInput = document.getElementById("files");
+        const submitButton = document.getElementById("submit");
+        const responseField = document.getElementById("response");
 
-                const newFiles = Array.from(input.dataTransfer.files);
-                const originalFiles = Array.from(fileInput.files)
-                const files = originalFiles.concat(newFiles);
+        // Handle dropped files
+        document.addEventListener("dragover", input => input.preventDefault());
+        document.addEventListener("drop", input => {
+            input.preventDefault();
 
-                const dataTransfer = new DataTransfer();
-                files.forEach(file => dataTransfer.items.add(file));
+            const newFiles = Array.from(input.dataTransfer.files);
+            const originalFiles = Array.from(fileInput.files)
+            const files = originalFiles.concat(newFiles);
 
-                fileInput.files = dataTransfer.files;
-            });
+            const dataTransfer = new DataTransfer();
+            files.forEach(file => dataTransfer.items.add(file));
 
-            // Handle pasted files
-            document.addEventListener("paste", input => {
-                const newFiles = Array.from(input.clipboardData.items)
-                    .filter(item => item.kind === 'file')
-                    .map(item => item.getAsFile());
+            fileInput.files = dataTransfer.files;
+        });
 
-                const originalFiles = Array.from(fileInput.files)
-                const files = originalFiles.concat(newFiles);
+        // Handle pasted files
+        document.addEventListener("paste", input => {
+            const newFiles = Array.from(input.clipboardData.items)
+                .filter(item => item.kind === 'file')
+                .map(item => item.getAsFile());
 
-                const dataTransfer = new DataTransfer();
-                files.forEach(file => dataTransfer.items.add(file));
+            const originalFiles = Array.from(fileInput.files)
+            const files = originalFiles.concat(newFiles);
 
-                fileInput.files = dataTransfer.files;
-            });
+            const dataTransfer = new DataTransfer();
+            files.forEach(file => dataTransfer.items.add(file));
 
-            models.addEventListener("change", () => {
-                const option = models.options[models.selectedIndex];
-                const optgroup = option.parentElement;
+            fileInput.files = dataTransfer.files;
+        });
 
-                fileInput.hidden = optgroup.label === "Image Generators";
-            });
+        models.addEventListener("change", () => {
+            const option = models.options[models.selectedIndex];
+            const optgroup = option.parentElement;
 
-            promptInput.addEventListener("keydown", event => {
-                if (event.key === "Enter") main();
-            });
+            fileInput.hidden = optgroup.label === "Image Generators";
+        });
 
-            submitButton.addEventListener("click", main);
+        promptInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") main();
+        });
 
-            async function main() {
-                responseField.innerHTML = "Loading...";
+        submitButton.addEventListener("click", main);
 
-                const option = models.options[models.selectedIndex];
-                const optgroup = option.parentElement;
-                const prompt = promptInput.value;
-                const files = fileInput.files;
+        async function main() {
+            responseField.innerHTML = "Loading...";
 
-                switch (optgroup.label) {
-                    case "Text Generators": {
-                        let attachments = [];
+            const option = models.options[models.selectedIndex];
+            const optgroup = option.parentElement;
+            const prompt = promptInput.value;
+            const files = fileInput.files;
 
-                        for (const file of files) {
-                            attachments.push({
-                                fileType: file.type,
-                                fileContent: await upload(file),
-                            });
-                        }
+            switch (optgroup.label) {
+                case "Text Generators": {
+                    let attachments = [];
 
-                        const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
-                            method: "POST",
-                            headers: {
-                                "content-type": "application/json",
-                                "uniqueid": newGUID(),
-                            },
-                            body: JSON.stringify({
-                                prompt,
-                                sessionId: newGUID(),
-                                attachments
-                            })
+                    for (const file of files) {
+                        attachments.push({
+                            fileType: file.type,
+                            fileContent: await upload(file),
                         });
-
-                        responseField.innerHTML = "";
-
-                        const reader = response.body.getReader();
-                        let text = "";
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            const chunks = textDecoder.decode(value, { stream: true }).split("\n").filter(Boolean);
-
-                            for (const chunk of chunks) {
-                                try {
-                                    const json = JSON.parse(chunk);
-
-                                    if (json?.msg !== "success") {
-                                        responseField.textContent = json.msg;
-                                        return;
-                                    }
-
-                                    const data = json?.data;
-
-                                    switch (data?.message_type) {
-                                        case "text": {
-                                            text += data.message;
-
-                                            responseField.innerHTML = marked.parse(text);
-                                            await MathJax.typesetPromise([responseField]);
-                                            
-                                            break;
-                                        }
-
-                                        case "title_generation": {
-                                            document.title = data.message;
-                                            break;
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.error("Error parsing chunk:", error);
-                                }
-                            }
-                        };
-
-                        break;
                     }
+
+                    const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
+                        method: "POST",
+                        headers: {
+                            "content-type": "application/json",
+                            "uniqueid": newGUID(),
+                        },
+                        body: JSON.stringify({
+                            prompt,
+                            sessionId: newGUID(),
+                            attachments
+                        })
+                    });
+
+                    responseField.innerHTML = "";
+
+                    const reader = response.body.getReader();
+                    let text = "";
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunks = textDecoder.decode(value, { stream: true }).split("\n").filter(Boolean);
+
+                        for (const chunk of chunks) {
+                            try {
+                                const json = JSON.parse(chunk);
+
+                                if (json?.msg !== "success") {
+                                    responseField.textContent = "API error: " + json.msg;
+                                    return;
+                                }
+
+                                const data = json?.data;
+
+                                switch (data?.message_type) {
+                                    case "text": {
+                                        text += data.message;
+
+                                        responseField.innerHTML = marked.parse(text);
+                                        await MathJax.typesetPromise([responseField]);
+
+                                        break;
+                                    }
+
+                                    case "title_generation": {
+                                        document.title = data.message;
+                                        break;
+                                    }
+                                }
+                            } catch (error) {
+                                console.error("Error parsing chunk:", error);
+                            }
+                        }
+                    };
+
+                    break;
                 }
             }
-        </script>
-    </body>
+        }
+    </script>
+</body>
+
 </html>
