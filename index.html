@@ -61,12 +61,42 @@
             const submitButton = document.getElementById("submit");
             const responseField = document.getElementById("response");
     
+            // Handle dropped files
+            document.addEventListener("dragover", input => input.preventDefault());
+            document.addEventListener("drop", input => {
+                input.preventDefault();
+                
+                const newFiles = Array.from(input.dataTransfer.files);
+                const originalFiles = Array.from(fileInput.files)
+                const files = originalFiles.concat(newFiles);
+    
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
+    
+                fileInput.files = dataTransfer.files;
+            });
+    
+            // Handle pasted files
+            document.addEventListener("paste", input => {
+                const newFiles = Array.from(input.clipboardData.items)
+                    .filter(item => item.kind === 'file')
+                    .map(item => item.getAsFile());
+    
+                const originalFiles = Array.from(fileInput.files)
+                const files = originalFiles.concat(newFiles);
+                
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
+    
+                fileInput.files = dataTransfer.files;
+            });
+    
             models.addEventListener("change", () => {
                 const option = models.options[models.selectedIndex];
                 const optgroup = option.parentElement;
     
                 fileInput.hidden = optgroup.label === "Image Generators";
-            })
+            });
     
             submitButton.addEventListener("click", async () => {
                 let ID = newGUID();
