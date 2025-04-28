@@ -44,8 +44,9 @@
 
             function upload(file) {
                 const formData = new FormData();
-                formData.append('c', file);
-                formData.append('e', '1m');
+                formData.append('c', file); // Content
+                formData.append('e', '1m'); // Expiration time
+                formData.append('p', 'true'); // Long random URL
 
                 return fetch('https://pb.angelrose.org/', {
                     method: 'POST',
@@ -105,24 +106,7 @@
             submitButton.addEventListener("click", main);
 
             async function main() {
-                let ID = newGUID();
-
                 responseField.innerHTML = "Loading...";
-
-                // Turnstile
-                const turnstile = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/should-check-turnstile", {
-                    "headers": {
-                        "uniqueid": ID
-                    }
-                })
-                    .then(response => response.json())
-
-                if (turnstile.code !== 200) {
-                    alert("Turnstile check failed. After being redirected, please interact with the AI and then come back to this website.");
-                    window.location.href = "https://www.gpt4v.net";
-                    
-                    return;
-                }
 
                 const option = models.options[models.selectedIndex];
                 const optgroup = option.parentElement;
@@ -144,7 +128,7 @@
                             method: "POST",
                             headers: {
                                 "content-type": "application/json",
-                                "uniqueid": ID,
+                                "uniqueid": newGUID(),
                             },
                             body: JSON.stringify({
                                 prompt,
@@ -153,9 +137,9 @@
                             })
                         });
 
-                        const reader = response.body.getReader();
                         responseField.innerHTML = "";
 
+                        const reader = response.body.getReader();
                         let text = "";
 
                         while (true) {
@@ -166,15 +150,22 @@
 
                             for (const chunk of chunks) {
                                 try {
-                                    const data = JSON.parse(chunk)?.data;
+                                    const json = JSON.parse(chunk);
+
+                                    if (json?.msg !== "success") {
+                                        responseField.textContent = json.msg;
+                                        return;
+                                    }
+
+                                    const data = json?.data;
 
                                     switch (data?.message_type) {
                                         case "text": {
                                             text += data.message;
 
                                             responseField.innerHTML = marked.parse(text);
-
-                                            await MathJax.typesetPromise();
+                                            await MathJax.typesetPromise([responseField]);
+                                            
                                             break;
                                         }
 
@@ -183,8 +174,8 @@
                                             break;
                                         }
                                     }
-                                } catch {
-                                    console.error("Error parsing chunk:", chunk);
+                                } catch (error) {
+                                    console.error("Error parsing chunk:", error);
                                 }
                             }
                         };
