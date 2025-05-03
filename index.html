@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -7,6 +6,12 @@
 
     <!-- KaTeX stylesheet -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+
+    <style>
+        body>* {
+            margin-top: 1rem;
+        }
+    </style>
 
     <script type="module">
         import katex from 'https://esm.sh/katex@0.16.10';
@@ -20,6 +25,7 @@
 </head>
 
 <body>
+    <label for="models">Model:</label>
     <select id="models">
         <optgroup label="Text Generators">
             <option>ChatGPT</option>
@@ -32,10 +38,21 @@
         </optgroup>
     </select>
 
-    <input id="prompt" type="text" placeholder="Put your prompt here...">
+    <br>
+
+    <label for="prompt">Prompt:</label>
+    <textarea id="prompt" placeholder="Put your prompt here..."></textarea>
+
+    <br>
+
+    <label for="files">Files:</label>
     <input id="files" type="file" multiple>
 
+    <br>
+
     <button id="submit">SUBMIT!</button>
+
+    <br>
 
     <div id="response"></div>
 
@@ -111,7 +128,10 @@
         });
 
         promptInput.addEventListener("keydown", event => {
-            if (event.key === "Enter") main();
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                main();
+            }
         });
 
         submitButton.addEventListener("click", main);
