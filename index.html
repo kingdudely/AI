@@ -1,12 +1,22 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8">
     <title>AI</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax/es5/tex-mml-chtml.js"></script>
+    <!-- KaTeX stylesheet -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+
+    <script type="module">
+        import katex from 'https://esm.sh/katex@0.16.10';
+        import MarkdownIt from 'https://esm.sh/markdown-it@14.1.0';
+        import markdownItKatexGpt from 'https://esm.sh/markdown-it-katex-gpt@1.1.1';
+
+        markdownItKatexGpt.katex = katex;
+        window.md = new MarkdownIt().use(markdownItKatexGpt);
+    </script>
+
 </head>
 
 <body>
@@ -30,32 +40,10 @@
     <div id="response"></div>
 
     <script>
-        const textDecoder = new TextDecoder();
-
         alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
         alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
 
-        function sleep(milliseconds) {
-            return new Promise(resolve => setTimeout(resolve, milliseconds));
-        }
-
-        function newGUID() {
-            return URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
-        }
-
-        function upload(file) {
-            const formData = new FormData();
-            formData.append('c', file); // Content
-            formData.append('e', '1m'); // Expiration time
-            formData.append('p', 'true'); // Long random URL
-
-            return fetch('https://pb.angelrose.org/', {
-                method: 'POST',
-                body: formData,
-            })
-                .then(response => response.json())
-                .then(data => data.suggestUrl)
-        }
+        const textDecoder = new TextDecoder();
 
         const models = document.getElementById("models");
         const promptInput = document.getElementById("prompt");
@@ -63,13 +51,36 @@
         const submitButton = document.getElementById("submit");
         const responseField = document.getElementById("response");
 
-        // Handle dropped files
+        const sleep = timeout => new Promise(resolve => setTimeout(resolve, timeout)); // milliseconds
+        const newGUID = () => URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
+        const waitUntil = (condition, timeout = 1) => new Promise(resolve => {
+            const interval = setInterval(() => {
+                if (condition()) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, timeout);
+        });
+
+        function upload(file) {
+            const formData = new FormData();
+            formData.append('c', file);
+            formData.append('e', '1m');
+            formData.append('p', 'true');
+
+            return fetch('https://pb.angelrose.org/', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => data.suggestUrl);
+        }
+
         document.addEventListener("dragover", input => input.preventDefault());
         document.addEventListener("drop", input => {
             input.preventDefault();
-
             const newFiles = Array.from(input.dataTransfer.files);
-            const originalFiles = Array.from(fileInput.files)
+            const originalFiles = Array.from(fileInput.files);
             const files = originalFiles.concat(newFiles);
 
             const dataTransfer = new DataTransfer();
@@ -78,13 +89,12 @@
             fileInput.files = dataTransfer.files;
         });
 
-        // Handle pasted files
         document.addEventListener("paste", input => {
             const newFiles = Array.from(input.clipboardData.items)
                 .filter(item => item.kind === 'file')
                 .map(item => item.getAsFile());
 
-            const originalFiles = Array.from(fileInput.files)
+            const originalFiles = Array.from(fileInput.files);
             const files = originalFiles.concat(newFiles);
 
             const dataTransfer = new DataTransfer();
@@ -116,8 +126,13 @@
 
             switch (optgroup.label) {
                 case "Text Generators": {
-                    let attachments = [];
+                    const uniqueid = newGUID();
 
+                    await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/should-check-turnstile", {
+                        headers: { uniqueid },
+                    });
+
+                    let attachments = [];
                     for (const file of files) {
                         attachments.push({
                             fileType: file.type,
@@ -129,7 +144,7 @@
                         method: "POST",
                         headers: {
                             "content-type": "application/json",
-                            "uniqueid": newGUID(),
+                            uniqueid,
                         },
                         body: JSON.stringify({
                             prompt,
@@ -140,8 +155,9 @@
 
                     responseField.innerHTML = "";
 
-                    const reader = response.body.getReader();
+                    // let finished = true;
                     let text = "";
+                    const reader = response.body.getReader();
 
                     while (true) {
                         const { done, value } = await reader.read();
@@ -151,9 +167,15 @@
 
                         for (const chunk of chunks) {
                             try {
-                                const json = JSON.parse(chunk);
+                                let json;
+                                try { json = JSON.parse(chunk); }
+                                catch { continue; }
 
-                                if (json?.msg !== "success") {
+                                // waitUntil(() => finished);
+
+                                if (json?.msg === "verify failed") {
+                                    alert("Verification failed. Please wait a bit before making another request.");
+                                } else if (json?.msg !== "success") {
                                     responseField.textContent = "API error: " + json.msg;
                                     return;
                                 }
@@ -163,9 +185,22 @@
                                 switch (data?.message_type) {
                                     case "text": {
                                         text += data.message;
+                                        responseField.innerHTML = window.md.render(text);
 
-                                        responseField.innerHTML = marked.parse(text);
-                                        await MathJax.typesetPromise([responseField]);
+                                        /*
+                                        finished = false;
+
+                                        (async () => {
+                                            for (let i = 0; i < data.message.length; i++) {
+                                                text += data.message.substring(i, i + 1);
+                                                responseField.innerHTML = window.md.render(text);
+
+                                                await sleep(10);
+                                            }
+
+                                            finished = true;
+                                        })();
+                                        */
 
                                         break;
                                     }
@@ -176,10 +211,10 @@
                                     }
                                 }
                             } catch (error) {
-                                console.error("Error parsing chunk:", error);
+                                console.warn("Error parsing chunk:", error);
                             }
                         }
-                    };
+                    }
 
                     break;
                 }
