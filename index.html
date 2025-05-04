@@ -1,258 +1,257 @@
 <!DOCTYPE html>
 
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>AI</title>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>AI</title>
 
-    <!-- KaTeX stylesheet -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+        <!-- KaTeX stylesheet -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
 
-    <style>
-        body>* {
-            margin-top: 1rem;
-        }
-    </style>
-
-    <script type="module">
-        import katex from 'https://esm.sh/katex@0.16.10';
-        import MarkdownIt from 'https://esm.sh/markdown-it@14.1.0';
-        import markdownItKatexGpt from 'https://esm.sh/markdown-it-katex-gpt@1.1.1';
-
-        markdownItKatexGpt.katex = katex;
-        window.md = new MarkdownIt().use(markdownItKatexGpt);
-    </script>
-
-</head>
-
-<body>
-    <label for="models">Model:</label>
-    <select id="models">
-        <optgroup label="Text Generators">
-            <option>ChatGPT</option>
-            <option>Claude</option>
-            <option>DeepSeek</option>
-        </optgroup>
-
-        <optgroup label="Image Generators">
-            <option>Stable Diffusion</option>
-        </optgroup>
-    </select>
-
-    <br>
-
-    <label for="smooth">Smooth:</label>
-    <input type="checkbox" id="smooth">
-
-    <br>
-
-    <label for="prompt">Prompt:</label>
-    <textarea id="prompt" placeholder="Put your prompt here..."></textarea>
-
-    <br>
-
-    <label for="files">Files:</label>
-    <input id="files" type="file" multiple>
-
-    <br>
-
-    <button id="submit">SUBMIT!</button>
-
-    <br>
-
-    <div id="response"></div>
-
-    <script>
-        alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
-        alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
-
-        const textDecoder = new TextDecoder();
-        let locked = false;
-
-        const models = document.getElementById("models");
-        const smooth = document.getElementById("smooth");
-        const promptInput = document.getElementById("prompt");
-        const fileInput = document.getElementById("files");
-        const submitButton = document.getElementById("submit");
-        const responseField = document.getElementById("response");
-
-        const sleep = timeout => new Promise(resolve => setTimeout(resolve, timeout)); // milliseconds
-        const newGUID = () => URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
-        const until = (condition, timeout = 1) => new Promise(resolve => {
-            const interval = setInterval(() => {
-                if (condition()) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, timeout);
-        });
-
-        function upload(file) {
-            const formData = new FormData();
-            formData.append('c', file);
-            formData.append('e', '1m');
-            formData.append('p', 'true');
-
-            return fetch('https://pb.angelrose.org/', {
-                method: 'POST',
-                body: formData,
-            })
-                .then(response => response.json())
-                .then(data => data.suggestUrl);
-        }
-
-        document.addEventListener("dragover", input => input.preventDefault());
-        document.addEventListener("drop", input => {
-            input.preventDefault();
-            const newFiles = Array.from(input.dataTransfer.files);
-            const originalFiles = Array.from(fileInput.files);
-            const files = originalFiles.concat(newFiles);
-
-            const dataTransfer = new DataTransfer();
-            files.forEach(file => dataTransfer.items.add(file));
-
-            fileInput.files = dataTransfer.files;
-        });
-
-        document.addEventListener("paste", input => {
-            const newFiles = Array.from(input.clipboardData.items)
-                .filter(item => item.kind === 'file')
-                .map(item => item.getAsFile());
-
-            const originalFiles = Array.from(fileInput.files);
-            const files = originalFiles.concat(newFiles);
-
-            const dataTransfer = new DataTransfer();
-            files.forEach(file => dataTransfer.items.add(file));
-
-            fileInput.files = dataTransfer.files;
-        });
-
-        models.addEventListener("change", () => {
-            const option = models.options[models.selectedIndex];
-            const optgroup = option.parentElement;
-
-            fileInput.hidden = optgroup.label === "Image Generators";
-        });
-
-        promptInput.addEventListener("keydown", event => {
-            if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                main();
+        <style>
+            body>* {
+                margin-top: 1rem;
             }
-        });
+        </style>
 
-        submitButton.addEventListener("click", main);
+        <script type="module">
+            import katex from 'https://esm.sh/katex@0.16.10';
+            import MarkdownIt from 'https://esm.sh/markdown-it@14.1.0';
+            import markdownItKatexGpt from 'https://esm.sh/markdown-it-katex-gpt@1.1.1';
 
-        async function main() {
-            if (locked) return;
-            locked = true;
+            markdownItKatexGpt.katex = katex;
+            window.md = new MarkdownIt().use(markdownItKatexGpt);
+        </script>
+    </head>
 
-            responseField.innerHTML = "Loading...";
+    <body>
+        <label for="models">Model:</label>
+        <select id="models">
+            <optgroup label="Text Generators">
+                <option>ChatGPT</option>
+                <option>Claude</option>
+                <option>DeepSeek</option>
+            </optgroup>
 
-            const option = models.options[models.selectedIndex];
-            const optgroup = option.parentElement;
-            const prompt = promptInput.value;
-            const files = fileInput.files;
+            <optgroup label="Image Generators">
+                <option>Stable Diffusion</option>
+            </optgroup>
+        </select>
 
-            switch (optgroup.label) {
-                case "Text Generators": {
-                    const uniqueid = newGUID();
+        <br>
 
-                    await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/should-check-turnstile", {
-                        headers: { uniqueid },
-                    });
+        <label for="smooth">Smooth:</label>
+        <input type="checkbox" id="smooth">
 
-                    let attachments = [];
-                    for (const file of files) {
-                        attachments.push({
-                            fileType: file.type,
-                            fileContent: await upload(file),
-                        });
+        <br>
+
+        <label for="prompt">Prompt:</label>
+        <textarea id="prompt" placeholder="Put your prompt here..."></textarea>
+
+        <br>
+
+        <label for="files">Files:</label>
+        <input id="files" type="file" multiple>
+
+        <br>
+
+        <button id="submit">SUBMIT!</button>
+
+        <br>
+
+        <div id="response"></div>
+
+        <script>
+            alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and image generation will be added soon.");
+            alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
+
+            const textDecoder = new TextDecoder();
+            let locked = false;
+
+            const models = document.getElementById("models");
+            const smooth = document.getElementById("smooth");
+            const promptInput = document.getElementById("prompt");
+            const fileInput = document.getElementById("files");
+            const submitButton = document.getElementById("submit");
+            const responseField = document.getElementById("response");
+
+            const sleep = timeout => new Promise(resolve => setTimeout(resolve, timeout)); // milliseconds
+            const newGUID = () => URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
+            const until = (condition, timeout = 1) => new Promise(resolve => {
+                const interval = setInterval(() => {
+                    if (condition()) {
+                        clearInterval(interval);
+                        resolve();
                     }
+                }, timeout);
+            });
 
-                    const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
-                        method: "POST",
-                        headers: {
-                            "content-type": "application/json",
-                            uniqueid,
-                        },
-                        body: JSON.stringify({
-                            prompt,
-                            sessionId: newGUID(),
-                            attachments
-                        })
-                    });
+            function upload(file) {
+                const formData = new FormData();
+                formData.append('c', file);
+                formData.append('e', '1m');
+                formData.append('p', 'true');
 
-                    responseField.innerHTML = "";
+                return fetch('https://pb.angelrose.org/', {
+                    method: 'POST',
+                    body: formData,
+                })
+                    .then(response => response.json())
+                    .then(data => data.suggestUrl);
+            }
 
-                    let finished = true;
-                    let text = "";
-                    const reader = response.body.getReader();
+            document.addEventListener("dragover", input => input.preventDefault());
+            document.addEventListener("drop", input => {
+                input.preventDefault();
+                const newFiles = Array.from(input.dataTransfer.files);
+                const originalFiles = Array.from(fileInput.files);
+                const files = originalFiles.concat(newFiles);
 
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
 
-                        const chunks = textDecoder.decode(value, { stream: true }).split("\n").filter(Boolean);
+                fileInput.files = dataTransfer.files;
+            });
 
-                        for (const chunk of chunks) {
-                            try {
-                                let json;
-                                try { json = JSON.parse(chunk); }
-                                catch { continue; }
+            document.addEventListener("paste", input => {
+                const newFiles = Array.from(input.clipboardData.items)
+                    .filter(item => item.kind === 'file')
+                    .map(item => item.getAsFile());
 
-                                await until(() => finished);
+                const originalFiles = Array.from(fileInput.files);
+                const files = originalFiles.concat(newFiles);
 
-                                if (json?.msg === "verify failed") {
-                                    alert("Verification failed. Please wait a bit before making another request.");
-                                } else if (json?.msg !== "success") {
-                                    responseField.textContent = "API error: " + json.msg;
-                                    return;
-                                }
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
 
-                                const data = json?.data;
+                fileInput.files = dataTransfer.files;
+            });
 
-                                switch (data?.message_type) {
-                                    case "text": {
-                                        if (smooth.checked) {
-                                            finished = false;
+            models.addEventListener("change", () => {
+                const option = models.options[models.selectedIndex];
+                const optgroup = option.parentElement;
 
-                                            (async () => {
-                                                for (let i = 0; i < data.message.length; i++) {
-                                                    text += data.message.substring(i, i + 1);
-                                                    responseField.innerHTML = window.md.render(text);
+                fileInput.hidden = optgroup.label === "Image Generators";
+            });
 
-                                                    await sleep(10);
-                                                }
+            promptInput.addEventListener("keydown", event => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    main();
+                }
+            });
 
-                                                finished = true;
-                                            })();
-                                        } else {
-                                            text += data.message;
-                                            responseField.innerHTML = window.md.render(text);
+            submitButton.addEventListener("click", main);
+
+            async function main() {
+                if (locked) return;
+                locked = true;
+
+                responseField.innerHTML = "Loading...";
+
+                const option = models.options[models.selectedIndex];
+                const optgroup = option.parentElement;
+                const prompt = promptInput.value;
+                const files = fileInput.files;
+
+                switch (optgroup.label) {
+                    case "Text Generators": {
+                        const uniqueid = newGUID();
+
+                        await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/should-check-turnstile", {
+                            headers: { uniqueid },
+                        });
+
+                        let attachments = [];
+                        for (const file of files) {
+                            attachments.push({
+                                fileType: file.type,
+                                fileContent: await upload(file),
+                            });
+                        }
+
+                        const response = await fetch("https://gpt4vnet.erweima.ai/api/v1/chat/gpt4o/chat", {
+                            method: "POST",
+                            headers: {
+                                "content-type": "application/json",
+                                uniqueid,
+                            },
+                            body: JSON.stringify({
+                                prompt,
+                                sessionId: newGUID(),
+                                attachments
+                            })
+                        });
+
+                        responseField.innerHTML = "";
+
+                        let finished = true;
+                        let text = "";
+                        const reader = response.body.getReader();
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            const chunks = textDecoder.decode(value, { stream: true }).split("\n").filter(Boolean);
+
+                            for (const chunk of chunks) {
+                                try {
+                                    let json;
+                                    try { json = JSON.parse(chunk); }
+                                    catch { continue; }
+
+                                    await until(() => finished);
+
+                                    if (json?.msg === "verify failed") {
+                                        alert("Verification failed. Please wait a bit before making another request.");
+                                    } else if (json?.msg !== "success") {
+                                        responseField.textContent = "API error: " + json.msg;
+                                        return;
+                                    }
+
+                                    const data = json?.data;
+
+                                    switch (data?.message_type) {
+                                        case "text": {
+                                            if (smooth.checked) {
+                                                finished = false;
+
+                                                (async () => {
+                                                    for (let i = 0; i < data.message.length; i++) {
+                                                        text += data.message.substring(i, i + 1);
+                                                        responseField.innerHTML = window.md.render(text);
+
+                                                        await sleep(10);
+                                                    }
+
+                                                    finished = true;
+                                                })();
+                                            } else {
+                                                text += data.message;
+                                                responseField.innerHTML = window.md.render(text);
+                                            }
+
+                                            break;
                                         }
 
-                                        break;
+                                        case "title_generation": {
+                                            document.title = data.message;
+                                            break;
+                                        }
                                     }
-
-                                    case "title_generation": {
-                                        document.title = data.message;
-                                        break;
-                                    }
+                                } catch (error) {
+                                    console.warn("Error parsing chunk:", error);
                                 }
-                            } catch (error) {
-                                console.warn("Error parsing chunk:", error);
                             }
                         }
+
+                        break;
                     }
-
-                    break;
                 }
+
+                locked = false;
             }
-
-            locked = false;
-        }
-    </script>
-</body>
-
+        </script>
+    </body>
 </html>
