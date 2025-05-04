@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<head>
+<head lang="en">
     <meta charset="UTF-8">
     <title>AI</title>
 
@@ -40,6 +40,11 @@
 
     <br>
 
+    <label for="smooth">Smooth:</label>
+    <input type="checkbox" id="smooth">
+
+    <br>
+
     <label for="prompt">Prompt:</label>
     <textarea id="prompt" placeholder="Put your prompt here..."></textarea>
 
@@ -61,8 +66,10 @@
         alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
 
         const textDecoder = new TextDecoder();
+        let locked = false;
 
         const models = document.getElementById("models");
+        const smooth = document.getElementById("smooth");
         const promptInput = document.getElementById("prompt");
         const fileInput = document.getElementById("files");
         const submitButton = document.getElementById("submit");
@@ -70,7 +77,7 @@
 
         const sleep = timeout => new Promise(resolve => setTimeout(resolve, timeout)); // milliseconds
         const newGUID = () => URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
-        const waitUntil = (condition, timeout = 1) => new Promise(resolve => {
+        const until = (condition, timeout = 1) => new Promise(resolve => {
             const interval = setInterval(() => {
                 if (condition()) {
                     clearInterval(interval);
@@ -137,6 +144,9 @@
         submitButton.addEventListener("click", main);
 
         async function main() {
+            if (locked) return;
+            locked = true;
+
             responseField.innerHTML = "Loading...";
 
             const option = models.options[models.selectedIndex];
@@ -175,7 +185,7 @@
 
                     responseField.innerHTML = "";
 
-                    // let finished = true;
+                    let finished = true;
                     let text = "";
                     const reader = response.body.getReader();
 
@@ -191,7 +201,7 @@
                                 try { json = JSON.parse(chunk); }
                                 catch { continue; }
 
-                                // waitUntil(() => finished);
+                                await until(() => finished);
 
                                 if (json?.msg === "verify failed") {
                                     alert("Verification failed. Please wait a bit before making another request.");
@@ -204,23 +214,23 @@
 
                                 switch (data?.message_type) {
                                     case "text": {
-                                        text += data.message;
-                                        responseField.innerHTML = window.md.render(text);
+                                        if (smooth.checked) {
+                                            finished = false;
 
-                                        /*
-                                        finished = false;
+                                            (async () => {
+                                                for (let i = 0; i < data.message.length; i++) {
+                                                    text += data.message.substring(i, i + 1);
+                                                    responseField.innerHTML = window.md.render(text);
 
-                                        (async () => {
-                                            for (let i = 0; i < data.message.length; i++) {
-                                                text += data.message.substring(i, i + 1);
-                                                responseField.innerHTML = window.md.render(text);
+                                                    await sleep(10);
+                                                }
 
-                                                await sleep(10);
-                                            }
-
-                                            finished = true;
-                                        })();
-                                        */
+                                                finished = true;
+                                            })();
+                                        } else {
+                                            text += data.message;
+                                            responseField.innerHTML = window.md.render(text);
+                                        }
 
                                         break;
                                     }
@@ -239,6 +249,8 @@
                     break;
                 }
             }
+
+            locked = false;
         }
     </script>
 </body>
