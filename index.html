@@ -10,11 +10,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
 
     <style>
-        body>* {
+        body > * {
             margin-top: 1rem;
         }
 
-        #response {
+        .container {
+            position: relative;
             display: inline-block;
             resize: both;
             overflow: auto;
@@ -23,11 +24,33 @@
             height: 200px;
         }
 
-        #response img {
+        .response, .response img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
+        }
+
+        button, select, input {
+            cursor: pointer;
+        }
+
+        .close {
+            color: red;
+            position: relative;
+            top: 0;
+            right: 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .close::before {
+            content: "\2715";
+        }
+
+        .close:hover::before {
+            content: "\2716";
         }
     </style>
 
@@ -74,26 +97,22 @@
 
     <button id="submit">SUBMIT!</button>
 
-    <br>
-
-    <div id="response"></div>
-
     <script>
         alert("(NOTE: CHATBOTS DO NOT HAVE MEMORY) Only ChatGPT works for now. Claude, DeepSeek and Stable Diffusion will be added soon. (Image generation has been added to ChatGPT)");
         alert("If it doesn't work, just press submit again. If it continues to not do anything, view the response details in the Network tab.");
 
+        const body = document.body;
         const textDecoder = new TextDecoder();
-        let locked = false;
+        const invisible = '\u200E'; // Zero-width space
 
         const models = document.getElementById("models");
         const smooth = document.getElementById("smooth");
-        const promptInput = document.getElementById("prompt");
+        const promptArea = document.getElementById("prompt");
         const fileInput = document.getElementById("files");
         const submitButton = document.getElementById("submit");
-        const responseField = document.getElementById("response");
 
         const sleep = timeout => new Promise(resolve => setTimeout(resolve, timeout)); // milliseconds
-        const newGUID = () => URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
+        const newGUID = () => crypto?.randomUUID() || URL.createObjectURL(new Blob).match(/[a-z0-9-]+$/)?.[0];
         const until = (condition, timeout = 1) => new Promise(resolve => {
             const interval = setInterval(() => {
                 if (condition()) {
@@ -107,7 +126,7 @@
         function upload(file) {
             const formData = new FormData();
             formData.append('c', file);
-            formData.append('e', '1m');
+            formData.append('e', '60'); // 1m
             formData.append('p', 'true');
 
             return fetch('https://pb.angelrose.org/', {
@@ -116,6 +135,18 @@
             })
                 .then(response => response.json())
                 .then(data => data.suggestUrl);
+        }
+
+        function combineFiles(original, addition) {
+            original = Array.from(original);
+            addition = Array.from(addition);
+
+            const files = original.concat(addition);
+
+            const dataTransfer = new DataTransfer();
+            files.forEach(file => dataTransfer.items.add(file));
+
+            return dataTransfer.files;
         }
 
         async function generateImage({
@@ -196,14 +227,8 @@
         document.addEventListener("dragover", input => input.preventDefault());
         document.addEventListener("drop", input => {
             input.preventDefault();
-            const newFiles = Array.from(input.dataTransfer.files);
-            const originalFiles = Array.from(fileInput.files);
-            const files = originalFiles.concat(newFiles);
 
-            const dataTransfer = new DataTransfer();
-            files.forEach(file => dataTransfer.items.add(file));
-
-            fileInput.files = dataTransfer.files;
+            fileInput.files = combineFiles(fileInput.files, input.dataTransfer.files);
         });
 
         document.addEventListener("paste", input => {
@@ -211,13 +236,7 @@
                 .filter(item => item.kind === 'file')
                 .map(item => item.getAsFile());
 
-            const originalFiles = Array.from(fileInput.files);
-            const files = originalFiles.concat(newFiles);
-
-            const dataTransfer = new DataTransfer();
-            files.forEach(file => dataTransfer.items.add(file));
-
-            fileInput.files = dataTransfer.files;
+            fileInput.files = combineFiles(fileInput.files, newFiles);
         });
 
         models.addEventListener("change", () => {
@@ -227,32 +246,42 @@
             fileInput.hidden = optgroup.label === "Image Generators";
         });
 
-        promptInput.addEventListener("keydown", event => {
+        promptArea.addEventListener("keydown", event => {
             if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                mainWrapper();
+                main();
             }
         });
 
-        submitButton.addEventListener("click", mainWrapper);
-
-        async function mainWrapper() {
-            if (locked) return;
-            locked = true;
-
-            try {
-                await main();
-            } finally {
-                locked = false;
-            }
-        }
+        submitButton.addEventListener("click", main);
 
         async function main() {
+            const br = document.createElement("br"); // New line
+
+            const container = document.createElement("div");
+            container.classList.add("container");
+
+            const close = document.createElement("button");
+            close.classList.add("close");
+            close.style.position = "absolute";
+            close.style.top = 0;
+            close.style.right = 0;
+
+            close.addEventListener("click", () => {
+                br.remove();
+                container.remove();
+            });
+
+            const responseField = document.createElement("div");
+            responseField.classList.add("response");
             responseField.innerHTML = "Loading...";
+
+            container.append(responseField, close);
+            body.append(br, container);
 
             const option = models.options[models.selectedIndex];
             const optgroup = option.parentElement;
-            const prompt = promptInput.value;
+            const prompt = promptArea.value.trim() || invisible; // If no prompt provided, use invisible character since API does not allow empty prompts
             const files = fileInput.files;
 
             switch (optgroup.label) {
@@ -350,6 +379,7 @@
 
                     if (json?.prompt) {
                         responseField.innerHTML = "Loading image...";
+
                         let imageUrl = await generateImage({
                             prompt: json.prompt
                         });
@@ -366,8 +396,7 @@
                             image.height = 100;
                             image.src = imageUrl;
 
-                            responseField.innerHTML = "";
-                            responseField.appendChild(image);
+                            responseField.innerHTML = image.outerHTML;
                         }
                     }
 
