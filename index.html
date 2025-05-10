@@ -103,6 +103,7 @@
 
         const body = document.body;
         const textDecoder = new TextDecoder();
+        const INT32_MAX = 2 ** 31 - 1;
         const invisible = '\u200E'; // Zero-width space
 
         const models = document.getElementById("models");
@@ -125,9 +126,9 @@
 
         function upload(file) {
             const formData = new FormData();
-            formData.append('c', file);
-            formData.append('e', '60'); // 1m
-            formData.append('p', 'true');
+            formData.append('c', file); // Content
+            formData.append('e', INT32_MAX.toString()); // Expiration
+            formData.append('p', 'true'); // Long URL
 
             return fetch('https://pb.angelrose.org/', {
                 method: 'POST',
